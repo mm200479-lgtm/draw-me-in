@@ -174,6 +174,11 @@
         <input class="profile-input" type="text" id="profileName" placeholder="Your name" maxlength="20">
         <input class="profile-input" type="text" id="profileTagline" placeholder="Short tagline (optional)" maxlength="40">
         <button class="save-btn" onclick="saveProfile()">Start Playing ✨</button>
+        <p style="font-size:0.72rem;opacity:0.4;margin-top:16px;cursor:pointer;text-decoration:underline;" onclick="showSyncLogin()">Already playing on another device? Sync here</p>
+        <div id="syncBox" style="display:none;margin-top:12px;">
+            <input class="profile-input" type="text" id="syncUid" placeholder="Paste your sync code">
+            <button class="save-btn" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);margin-top:4px;" onclick="syncFromCode()">Sync</button>
+        </div>
     </div>
 </div>
 
@@ -196,6 +201,8 @@
             <div class="color-dot" style="background:#f59e0b;" onclick="setColor('#f59e0b',this)"></div>
             <div class="color-dot" style="background:#3b82f6;" onclick="setColor('#3b82f6',this)"></div>
         </div></div>
+        <div class="setting-row"><span class="setting-label">Sync Code</span><button style="padding:6px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:0.7rem;cursor:pointer;" onclick="copySyncCode()">Copy Code</button></div>
+        <p style="font-size:0.65rem;opacity:0.4;margin-top:4px;">Use this code to sign in on another device</p>
     </div>
 </div>
 <div class="screen" id="gameScreen">
@@ -253,7 +260,7 @@ firebase.initializeApp({
 const db = firebase.database();
 
 // State
-let profile = { name:'', avatar:'😊', tagline:'' };
+let profile = { name:'', avatar:'😊', tagline:'', uid:'' };
 let myRooms = [];
 let room = null; // {code, label, ref, playerId, partnerName}
 let usedQ = new Set();
@@ -299,8 +306,15 @@ function pickAv(e,btn){profile.avatar=e;document.getElementById('avatarPreview')
 function saveProfile(){
     const n=document.getElementById('profileName').value.trim();if(!n)return;
     profile.name=n; profile.tagline=document.getElementById('profileTagline').value.trim();
+    // Generate or reuse UID
+    if(!profile.uid) profile.uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
     localStorage.setItem('dmi_profile',JSON.stringify(profile));
-    showDash();
+    // Save profile to Firebase
+    db.ref('users/'+profile.uid+'/profile').set(profile);
+    db.ref('users/'+profile.uid+'/rooms').once('value').then(s=>{
+        if(s.val()) myRooms = Object.values(s.val());
+        showDash();
+    });
 }
 
 // Dashboard
@@ -331,7 +345,7 @@ function renderRooms(){
 }
 function shareR(code,label){const u=location.origin+location.pathname+'?room='+code;navigator.share?navigator.share({title:'Draw Me In 💕',text:'Play with me!',url:u}):navigator.clipboard.writeText(u).then(()=>alert('Link copied! Send to '+label+'\n'+u));}
 function delRoom(i){if(!confirm('Delete "'+myRooms[i].label+'"?'))return;db.ref('rooms/'+myRooms[i].code).remove();myRooms.splice(i,1);saveLocal();renderRooms();}
-function saveLocal(){localStorage.setItem('dmi_rooms',JSON.stringify(myRooms));}
+function saveLocal(){localStorage.setItem('dmi_rooms',JSON.stringify(myRooms)); if(profile.uid) db.ref('users/'+profile.uid+'/rooms').set(myRooms);}
 // Enter Room
 function enterRoom(i){
     const r=myRooms[i]; usedQ=new Set(); curQ=null; isMyTurn=true;
@@ -520,6 +534,26 @@ document.getElementById('chatInp').addEventListener('input',()=>{if(!room)return
 function toggleDark(el){el.classList.toggle('on');document.body.classList.toggle('light-mode',!el.classList.contains('on'));}
 function setColor(c,el){document.documentElement.style.setProperty('--accent',c);document.documentElement.style.setProperty('--accent-glow',c+'66');document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('selected'));el.classList.add('selected');}
 
+// Sync across devices
+function showSyncLogin(){document.getElementById('syncBox').style.display='block';}
+function syncFromCode(){
+    const uid=document.getElementById('syncUid').value.trim();if(!uid)return;
+    db.ref('users/'+uid).once('value').then(s=>{
+        if(!s.exists()){alert('Code not found. Check and try again.');return;}
+        const data=s.val();
+        profile=data.profile||profile;
+        profile.uid=uid;
+        myRooms=data.rooms?Object.values(data.rooms):[];
+        localStorage.setItem('dmi_profile',JSON.stringify(profile));
+        localStorage.setItem('dmi_rooms',JSON.stringify(myRooms));
+        showDash();
+    });
+}
+function copySyncCode(){
+    if(!profile.uid){alert('No sync code yet');return;}
+    navigator.clipboard.writeText(profile.uid).then(()=>alert('Sync code copied! Paste it on your other device.\n\nCode: '+profile.uid));
+}
+
 // Sound
 function playSound(){if(!document.getElementById('toggleSound').classList.contains('on'))return;try{const c=new(window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;o.type='sine';g.gain.value=0.08;o.start();g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.25);o.stop(c.currentTime+0.25);}catch(e){}}
 
@@ -587,12 +621,23 @@ document.getElementById('newRoomName').addEventListener('keypress',e=>{if(e.key=
     if(saved){
         profile=JSON.parse(saved);
         myRooms=JSON.parse(localStorage.getItem('dmi_rooms')||'[]');
-        // Check URL for room join
+        // Sync rooms from Firebase (handles cross-device)
+        if(profile.uid){
+            db.ref('users/'+profile.uid+'/rooms').once('value').then(s=>{
+                if(s.val()){
+                    myRooms=Object.values(s.val());
+                    localStorage.setItem('dmi_rooms',JSON.stringify(myRooms));
+                }
+                // Check URL for room join
+                handleUrlJoin();
+            });
+        } else { handleUrlJoin(); }
+    }
+    function handleUrlJoin(){
         const p=new URLSearchParams(location.search);const rc=p.get('room');
         if(rc){
             const code=rc.toUpperCase();
             if(!myRooms.find(r=>r.code===code)){
-                // Join as player2
                 const ref=db.ref('rooms/'+code);
                 ref.once('value').then(s=>{
                     if(!s.exists()){alert('Room not found');showDash();return;}
@@ -601,9 +646,7 @@ document.getElementById('newRoomName').addEventListener('keypress',e=>{if(e.key=
                     myRooms.push({code,label:d.player1.name,playerId:'player2'});
                     saveLocal(); showDash(); enterRoom(myRooms.length-1);
                 });
-            } else {
-                showDash(); enterRoom(myRooms.findIndex(r=>r.code===code));
-            }
+            } else { showDash(); enterRoom(myRooms.findIndex(r=>r.code===code)); }
         } else { showDash(); }
     }
 })();
