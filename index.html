@@ -254,7 +254,7 @@
         <div class="typing-ind" id="typInd"></div>
         <div class="chat-input-row">
             <button style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,0.06);color:#fff;font-size:0.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="document.getElementById('fileUp').click()">📷</button>
-            <button style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,0.06);color:#fff;font-size:0.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" id="voiceBtn" onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec()" ontouchend="stopRec()">🎤</button>
+            <button style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,0.06);color:#fff;font-size:0.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" id="voiceBtn" onclick="toggleRec()">🎤</button>
             <input type="text" id="chatInp" placeholder="Type your answer...">
             <button class="send-btn" onclick="sendMsg()">➤</button>
         </div>
@@ -760,31 +760,50 @@ function uploadFile(event){
     event.target.value='';
 }
 
-// Voice Recording
-let mediaRec=null,audioChunks=[];
+// Voice Recording — tap to start, tap to stop and send
+let mediaRec=null,audioChunks=[],isRecording=false;
+function toggleRec(){
+    if(isRecording){stopRec();}else{startRec();}
+}
 function startRec(){
     if(!navigator.mediaDevices){alert('Mic not supported');return;}
     navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
-        mediaRec=new MediaRecorder(stream);audioChunks=[];
+        // Use mp4/m4a if supported (better iOS compatibility), fallback to webm
+        const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 
+                         MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+        mediaRec=new MediaRecorder(stream, {mimeType});
+        audioChunks=[];
         mediaRec.ondataavailable=e=>audioChunks.push(e.data);
         mediaRec.onstop=()=>{
-            const blob=new Blob(audioChunks,{type:'audio/webm'});
+            const blob=new Blob(audioChunks,{type:mediaRec.mimeType});
             stream.getTracks().forEach(t=>t.stop());
             document.getElementById('typInd').textContent='Sending voice...';
-            const fd=new FormData();fd.append('file',blob);fd.append('upload_preset','draw_me_in_unsigned');fd.append('cloud_name',CLOUD_NAME);
+            const fd=new FormData();
+            fd.append('file',blob,'voice.webm');
+            fd.append('upload_preset','draw_me_in_unsigned');
+            fd.append('cloud_name',CLOUD_NAME);
+            fd.append('resource_type','video');
             fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,{method:'POST',body:fd})
             .then(r=>r.json()).then(data=>{
                 document.getElementById('typInd').textContent='';
-                if(data.secure_url && room)room.ref.child('messages').push({type:'media',mediaType:'audio',url:data.secure_url,name:profile.name,playerId:room.playerId,ts:Date.now()});
-            }).catch(()=>{document.getElementById('typInd').textContent='';});
+                if(data.secure_url && room){
+                    // Use mp3 transformation for universal playback
+                    const mp3Url = data.secure_url.replace(/\.[^.]+$/,'.mp3');
+                    room.ref.child('messages').push({type:'media',mediaType:'audio',url:mp3Url,name:profile.name,playerId:room.playerId,ts:Date.now()});
+                }
+            }).catch(()=>{document.getElementById('typInd').textContent='Send failed';setTimeout(()=>{document.getElementById('typInd').textContent='';},2000);});
+            isRecording=false;
+            document.getElementById('voiceBtn').style.background='';
+            document.getElementById('typInd').textContent='';
         };
         mediaRec.start();
+        isRecording=true;
         document.getElementById('voiceBtn').style.background='var(--accent)';
-        document.getElementById('typInd').textContent='🔴 Recording...';
+        document.getElementById('typInd').textContent='🔴 Recording — tap 🎤 to send';
     }).catch(()=>alert('Mic access denied'));
 }
 function stopRec(){
-    if(mediaRec&&mediaRec.state==='recording'){mediaRec.stop();document.getElementById('voiceBtn').style.background='';document.getElementById('typInd').textContent='';}
+    if(mediaRec&&mediaRec.state==='recording'){mediaRec.stop();}
 }
 
 // Notifications
