@@ -285,6 +285,10 @@ const obData = [
     {e:'💕',t:'React, Connect, Repeat',d:'React with emoji. See your vibe match grow.<br>Take turns. Go deeper. Have fun.'}
 ];
 let obStep = 0;
+
+// HTML escape helper — prevents XSS
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
 // Screens
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 
@@ -324,11 +328,19 @@ function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i
 
 function createRoom(){
     const label=document.getElementById('newRoomName').value.trim();if(!label)return;
-    const code=genCode();
-    const ref=db.ref('rooms/'+code);
-    ref.set({player1:{name:profile.name,avatar:profile.avatar,online:true},player2:null,messages:null,turn:'player1',compat:{total:0,matches:0},createdAt:Date.now()});
-    myRooms.push({code,label,playerId:'player1'});
-    saveLocal(); document.getElementById('newRoomName').value=''; renderRooms();
+    let attempts=0;
+    function tryCreate(){
+        if(attempts++>5){alert('Could not create room. Try again.');return;}
+        const code=genCode();
+        const ref=db.ref('rooms/'+code);
+        ref.once('value').then(s=>{
+            if(s.exists()){tryCreate();return;}
+            ref.set({player1:{name:profile.name,avatar:profile.avatar,online:true},player2:null,messages:null,turn:'player1',compat:{total:0,matches:0},createdAt:Date.now()});
+            myRooms.push({code,label,playerId:'player1'});
+            saveLocal(); document.getElementById('newRoomName').value=''; renderRooms();
+        });
+    }
+    tryCreate();
 }
 
 function renderRooms(){
@@ -336,9 +348,9 @@ function renderRooms(){
     if(!myRooms.length){list.innerHTML='<div class="room-empty">Create a room to start!</div>';return;}
     list.innerHTML=myRooms.map((r,i)=>`
         <div class="room-card" onclick="enterRoom(${i})">
-            <div class="room-card-left"><div class="room-card-name">${r.label}</div><div class="room-card-code">${r.code}</div><div class="room-card-status">Tap to play</div></div>
+            <div class="room-card-left"><div class="room-card-name">${esc(r.label)}</div><div class="room-card-code">${esc(r.code)}</div><div class="room-card-status">Tap to play</div></div>
             <div class="room-card-right">
-                <button class="rc-btn" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.1);" onclick="event.stopPropagation();shareR('${r.code}','${r.label}')">Share</button>
+                <button class="rc-btn" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.1);" onclick="event.stopPropagation();shareR('${esc(r.code)}','${esc(r.label)}')">Share</button>
                 <button class="rc-btn" style="background:rgba(255,107,107,0.08);color:#ff6b6b;border:1px solid rgba(255,107,107,0.12);" onclick="event.stopPropagation();delRoom(${i})">Delete</button>
             </div>
         </div>`).join('');
@@ -348,15 +360,28 @@ function delRoom(i){if(!confirm('Delete "'+myRooms[i].label+'"?'))return;db.ref(
 function saveLocal(){localStorage.setItem('dmi_rooms',JSON.stringify(myRooms)); if(profile.uid) db.ref('users/'+profile.uid+'/rooms').set(myRooms);}
 // Enter Room
 function enterRoom(i){
+    // Clean up any existing room listeners first
+    if(listeners.length){listeners.forEach(l=>l.r.off(l.e));listeners=[];}
     const r=myRooms[i]; usedQ=new Set(); curQ=null; isMyTurn=true;
-    room={code:r.code,label:r.label,playerId:r.playerId,ref:db.ref('rooms/'+r.code),partnerName:''};
-    room.ref.child(r.playerId+'/online').set(true);
-    room.ref.child(r.playerId+'/online').onDisconnect().set(false);
-    show('gameScreen');
-    document.getElementById('sText').textContent='Playing with '+r.label;
-    document.getElementById('roomLabel').textContent=r.label+' · '+r.code;
-    initCats(); resetUI();
-    listenRoom();
+    room={code:r.code,label:r.label,playerId:r.playerId,ref:db.ref('rooms/'+r.code),partnerName:'',loaded:false};
+    // Check if room still exists
+    room.ref.once('value').then(s=>{
+        if(!s.exists()){
+            alert('This room no longer exists.');
+            myRooms.splice(i,1);saveLocal();showDash();return;
+        }
+        room.ref.child(r.playerId+'/online').set(true);
+        room.ref.child(r.playerId+'/online').onDisconnect().set(false);
+        show('gameScreen');
+        document.getElementById('sText').textContent='Playing with '+r.label;
+        document.getElementById('roomLabel').textContent=r.label+' · '+r.code;
+        document.getElementById('chatMsgs').innerHTML='<div class="msg system">Loading...</div>';
+        document.getElementById('revealSec').classList.add('hidden');
+        document.getElementById('reactArea').classList.add('hidden');
+        document.getElementById('vibeBar').textContent='';
+        initCats(); resetUI();
+        listenRoom();
+    });
 }
 
 function listenRoom(){
@@ -376,10 +401,20 @@ function listenRoom(){
     });
     listeners.push({r:room.ref.child('turn'),e:'value'});
     // Messages
+    const currentRoomCode = room.code;
+    let pendingPartnerBlind = null; // Store partner's blind answer if received during load
     room.ref.child('messages').orderByChild('ts').on('child_added',s=>{
+        if(!room || room.code !== currentRoomCode) return;
         const m=s.val();
-        if(m.type==='question'){usedQ.add(m.number);showCardData(m);updateCounter();}
-        if(m.type==='blind_answer'&&m.playerId!==room.playerId){handlePartnerBlind(m);}
+        if(m.type==='question'){
+            usedQ.add(m.number);
+            if(room.loaded){ showCardData(m); }
+            updateCounter();
+        }
+        if(m.type==='blind_answer'&&m.playerId!==room.playerId){
+            if(room.loaded){handlePartnerBlind(m);}
+            else{pendingPartnerBlind=m;} // Save for after load
+        }
         if(m.type==='chat'){addChatBubble(m);}
         if(m.type==='media'){addMediaBubble(m);}
         if(m.type==='system'){addSysBubble(m.text);}
@@ -394,6 +429,15 @@ function listenRoom(){
     // Typing
     pRef.child('typing').on('value',s=>{document.getElementById('typInd').textContent=s.val()?(room.partnerName||room.label)+' is thinking...':'';});
     listeners.push({r:pRef.child('typing'),e:'value'});
+    // Clear loading state after initial load
+    room.ref.child('messages').once('value').then(s=>{
+        if(!s.exists()){document.getElementById('chatMsgs').innerHTML='<div class="msg system">Draw a question to start...</div>';}
+        else{const loading=document.querySelector('#chatMsgs .msg.system');if(loading&&loading.textContent==='Loading...')loading.remove();}
+        room.loaded = true;
+        // If partner already locked in a blind answer before we loaded, show it now
+        if(pendingPartnerBlind && myAnswer){handlePartnerBlind(pendingPartnerBlind);}
+        else if(pendingPartnerBlind){document.getElementById('blindLbl').textContent='👀 '+pendingPartnerBlind.name+' locked in! Your turn...';}
+    });
     updateCounter();
 }
 
@@ -431,13 +475,16 @@ function drawCard(){
     curQ=q;
     // Push to Firebase
     room.ref.child('messages').push({type:'question',number:q.number,category:q.category,emoji:q.emoji,text:q.text,drawnBy:profile.name,ts:Date.now()});
+    // Switch turns — other person draws next
+    const next=room.playerId==='player1'?'player2':'player1';
+    room.ref.child('turn').set(next);
     // Set mode
     if(blindCats.has(q.category)){showBlind();}else{showSingle();}
 }
 
 function showCardData(m){
     const card=document.getElementById('card');card.classList.remove('flipped');void card.offsetWidth;card.classList.add('flipped');
-    card.innerHTML=`<div class="card-number">#${m.number}</div><div class="card-category">${m.emoji} ${m.category}</div><div class="card-question">${m.text}</div>`;
+    card.innerHTML=`<div class="card-number">#${esc(String(m.number))}</div><div class="card-category">${esc(m.emoji)} ${esc(m.category)}</div><div class="card-question">${esc(m.text)}</div>`;
     curQ=m;
     if(blindCats.has(m.category))showBlind();else showSingle();
 }
@@ -471,12 +518,9 @@ function handlePartnerBlind(m){
     document.getElementById('reactArea').classList.remove('hidden');
     document.getElementById('blindLbl').textContent='👀 Answers revealed!';
     const sim=checkSim(myAnswer,m.text);
-    rev.innerHTML=`<div class="reveal-bubble reveal-mine"><div class="reveal-label">You</div>${myAnswer}</div><div class="reveal-bubble reveal-theirs"><div class="reveal-label">${m.name}</div>${m.text}</div>${sim?'<div class="same-badge">✨ You two think alike! ✨</div>':''}`;
+    rev.innerHTML=`<div class="reveal-bubble reveal-mine"><div class="reveal-label">You</div>${esc(myAnswer)}</div><div class="reveal-bubble reveal-theirs"><div class="reveal-label">${esc(m.name)}</div>${esc(m.text)}</div>${sim?'<div class="same-badge">✨ You two think alike! ✨</div>':''}`;
     // Update compat
     room.ref.child('compat').transaction(c=>{if(!c)c={total:0,matches:0};c.total++;if(sim)c.matches++;return c;});
-    // Switch turns
-    const next=room.playerId==='player1'?'player2':'player1';
-    room.ref.child('turn').set(next);
     playSound();
 }
 function checkSim(a,b){const wa=a.toLowerCase().split(' ');const wb=b.toLowerCase().split(' ');return wa.filter(w=>wb.includes(w)&&w.length>3).length>=2;}
@@ -495,9 +539,6 @@ function sendMsg(){
     room.ref.child('messages').push({type:'chat',text:t,name:profile.name,playerId:room.playerId,ts:Date.now()});
     room.ref.child(room.playerId+'/typing').set(false);
     inp.value='';
-    // Switch turns after answering
-    const next=room.playerId==='player1'?'player2':'player1';
-    room.ref.child('turn').set(next);
 }
 function addChatBubble(m){
     const msgs=document.getElementById('chatMsgs');
@@ -506,7 +547,7 @@ function addChatBubble(m){
     const isMe=m.playerId===room.playerId;
     d.className='msg '+(isMe?'mine':'theirs');
     const receipt=isMe?' <span style="font-size:0.45rem;opacity:0.4;">✓</span>':'';
-    d.innerHTML=`<div class="msg-label">${m.name}</div>${m.text}<div class="msg-time">${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}${receipt}</div>`;
+    d.innerHTML=`<div class="msg-label">${esc(m.name)}</div>${esc(m.text)}<div class="msg-time">${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}${receipt}</div>`;
     msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
     if(!isMe)playSound();
 }
@@ -517,10 +558,10 @@ function addMediaBubble(m){
     const isMe=m.playerId===room.playerId;
     d.className='msg '+(isMe?'mine':'theirs');
     let media='';
-    if(m.mediaType==='image')media=`<img src="${m.url}" style="max-width:100%;border-radius:8px;margin-top:4px;">`;
-    else if(m.mediaType==='audio')media=`<audio controls src="${m.url}" style="width:100%;max-width:200px;margin-top:4px;"></audio>`;
-    else if(m.mediaType==='video')media=`<video controls src="${m.url}" style="max-width:100%;border-radius:8px;margin-top:4px;"></video>`;
-    d.innerHTML=`<div class="msg-label">${m.name}</div>${media}<div class="msg-time">${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>`;
+    if(m.mediaType==='image')media=`<img src="${esc(m.url)}" style="max-width:100%;border-radius:8px;margin-top:4px;">`;
+    else if(m.mediaType==='audio')media=`<audio controls src="${esc(m.url)}" style="width:100%;max-width:200px;margin-top:4px;"></audio>`;
+    else if(m.mediaType==='video')media=`<video controls src="${esc(m.url)}" style="max-width:100%;border-radius:8px;margin-top:4px;"></video>`;
+    d.innerHTML=`<div class="msg-label">${esc(m.name)}</div>${media}<div class="msg-time">${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>`;
     msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
     if(!isMe)playSound();
 }
@@ -570,7 +611,7 @@ function uploadFile(event){
     fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`,{method:'POST',body:fd})
     .then(r=>r.json()).then(data=>{
         document.getElementById('typInd').textContent='';
-        if(data.secure_url){
+        if(data.secure_url && room){
             const msgType=file.type.startsWith('audio')?'audio':file.type.startsWith('video')?'video':'image';
             room.ref.child('messages').push({type:'media',mediaType:msgType,url:data.secure_url,name:profile.name,playerId:room.playerId,ts:Date.now()});
         }
@@ -594,7 +635,7 @@ function startRec(){
             fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,{method:'POST',body:fd})
             .then(r=>r.json()).then(data=>{
                 document.getElementById('typInd').textContent='';
-                if(data.secure_url)room.ref.child('messages').push({type:'media',mediaType:'audio',url:data.secure_url,name:profile.name,playerId:room.playerId,ts:Date.now()});
+                if(data.secure_url && room)room.ref.child('messages').push({type:'media',mediaType:'audio',url:data.secure_url,name:profile.name,playerId:room.playerId,ts:Date.now()});
             }).catch(()=>{document.getElementById('typInd').textContent='';});
         };
         mediaRec.start();
@@ -642,6 +683,10 @@ document.getElementById('newRoomName').addEventListener('keypress',e=>{if(e.key=
                 ref.once('value').then(s=>{
                     if(!s.exists()){alert('Room not found');showDash();return;}
                     const d=s.val();
+                    // Check if room is full (player2 already exists and is different person)
+                    if(d.player2 && d.player2.name && d.player2.name !== profile.name){
+                        alert('This room is full.');showDash();return;
+                    }
                     ref.child('player2').set({name:profile.name,avatar:profile.avatar,online:true});
                     myRooms.push({code,label:d.player1.name,playerId:'player2'});
                     saveLocal(); showDash(); enterRoom(myRooms.length-1);
