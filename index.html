@@ -225,9 +225,12 @@
         <div class="chat-messages" id="chatMsgs"><div class="msg system">Draw a question to start...</div></div>
         <div class="typing-ind" id="typInd"></div>
         <div class="chat-input-row">
+            <button style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,0.06);color:#fff;font-size:0.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="document.getElementById('fileUp').click()">📷</button>
+            <button style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,0.06);color:#fff;font-size:0.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" id="voiceBtn" onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec()" ontouchend="stopRec()">🎤</button>
             <input type="text" id="chatInp" placeholder="Type your answer...">
             <button class="send-btn" onclick="sendMsg()">➤</button>
         </div>
+        <input type="file" id="fileUp" accept="image/*,video/*,audio/*" style="display:none;" onchange="uploadFile(event)">
         <div class="bottom-btns"><button class="bottom-btn" onclick="clearChat()">🗑️ Clear Chat</button></div>
     </div>
 </div>
@@ -364,6 +367,7 @@ function listenRoom(){
         if(m.type==='question'){usedQ.add(m.number);showCardData(m);updateCounter();}
         if(m.type==='blind_answer'&&m.playerId!==room.playerId){handlePartnerBlind(m);}
         if(m.type==='chat'){addChatBubble(m);}
+        if(m.type==='media'){addMediaBubble(m);}
         if(m.type==='system'){addSysBubble(m.text);}
     });
     listeners.push({r:room.ref.child('messages'),e:'child_added'});
@@ -492,6 +496,20 @@ function addChatBubble(m){
     msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
     if(!isMe)playSound();
 }
+function addMediaBubble(m){
+    const msgs=document.getElementById('chatMsgs');
+    const empty=msgs.querySelector('.msg.system');if(empty&&empty.textContent==='Draw a question to start...')empty.remove();
+    const d=document.createElement('div');
+    const isMe=m.playerId===room.playerId;
+    d.className='msg '+(isMe?'mine':'theirs');
+    let media='';
+    if(m.mediaType==='image')media=`<img src="${m.url}" style="max-width:100%;border-radius:8px;margin-top:4px;">`;
+    else if(m.mediaType==='audio')media=`<audio controls src="${m.url}" style="width:100%;max-width:200px;margin-top:4px;"></audio>`;
+    else if(m.mediaType==='video')media=`<video controls src="${m.url}" style="max-width:100%;border-radius:8px;margin-top:4px;"></video>`;
+    d.innerHTML=`<div class="msg-label">${m.name}</div>${media}<div class="msg-time">${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>`;
+    msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
+    if(!isMe)playSound();
+}
 function addSysBubble(t){const msgs=document.getElementById('chatMsgs');const d=document.createElement('div');d.className='msg system';d.textContent=t;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}
 function clearChat(){if(!confirm('Clear all messages for both players?'))return;room.ref.child('messages').remove();document.getElementById('chatMsgs').innerHTML='<div class="msg system">Draw a question to start...</div>';}
 
@@ -504,6 +522,55 @@ function setColor(c,el){document.documentElement.style.setProperty('--accent',c)
 
 // Sound
 function playSound(){if(!document.getElementById('toggleSound').classList.contains('on'))return;try{const c=new(window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;o.type='sine';g.gain.value=0.08;o.start();g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.25);o.stop(c.currentTime+0.25);}catch(e){}}
+
+// Cloudinary Upload
+const CLOUD_NAME = 'hjksvmbz';
+function uploadFile(event){
+    const file=event.target.files[0];if(!file)return;
+    document.getElementById('typInd').textContent='Uploading...';
+    const fd=new FormData();
+    fd.append('file',file);
+    fd.append('upload_preset','draw_me_in_unsigned');
+    fd.append('cloud_name',CLOUD_NAME);
+    const resourceType=file.type.startsWith('video')?'video':file.type.startsWith('audio')?'video':'image';
+    fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`,{method:'POST',body:fd})
+    .then(r=>r.json()).then(data=>{
+        document.getElementById('typInd').textContent='';
+        if(data.secure_url){
+            const msgType=file.type.startsWith('audio')?'audio':file.type.startsWith('video')?'video':'image';
+            room.ref.child('messages').push({type:'media',mediaType:msgType,url:data.secure_url,name:profile.name,playerId:room.playerId,ts:Date.now()});
+        }
+    }).catch(()=>{document.getElementById('typInd').textContent='Upload failed';setTimeout(()=>{document.getElementById('typInd').textContent='';},2000);});
+    event.target.value='';
+}
+
+// Voice Recording
+let mediaRec=null,audioChunks=[];
+function startRec(){
+    if(!navigator.mediaDevices){alert('Mic not supported');return;}
+    navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+        mediaRec=new MediaRecorder(stream);audioChunks=[];
+        mediaRec.ondataavailable=e=>audioChunks.push(e.data);
+        mediaRec.onstop=()=>{
+            const blob=new Blob(audioChunks,{type:'audio/webm'});
+            stream.getTracks().forEach(t=>t.stop());
+            // Upload to Cloudinary
+            document.getElementById('typInd').textContent='Sending voice...';
+            const fd=new FormData();fd.append('file',blob);fd.append('upload_preset','draw_me_in_unsigned');fd.append('cloud_name',CLOUD_NAME);
+            fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,{method:'POST',body:fd})
+            .then(r=>r.json()).then(data=>{
+                document.getElementById('typInd').textContent='';
+                if(data.secure_url)room.ref.child('messages').push({type:'media',mediaType:'audio',url:data.secure_url,name:profile.name,playerId:room.playerId,ts:Date.now()});
+            }).catch(()=>{document.getElementById('typInd').textContent='';});
+        };
+        mediaRec.start();
+        document.getElementById('voiceBtn').style.background='var(--accent)';
+        document.getElementById('typInd').textContent='🔴 Recording...';
+    }).catch(()=>alert('Mic access denied'));
+}
+function stopRec(){
+    if(mediaRec&&mediaRec.state==='recording'){mediaRec.stop();document.getElementById('voiceBtn').style.background='';document.getElementById('typInd').textContent='';}
+}
 
 // Notifications
 if('Notification' in window&&Notification.permission!=='denied')Notification.requestPermission();
