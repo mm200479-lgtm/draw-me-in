@@ -1,0 +1,9 @@
+{
+  "name": "Draw Me In",
+  "short_name": "Draw Me In",
+  "description": "No small talk, just real talk. One question at a time.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e"
+}
