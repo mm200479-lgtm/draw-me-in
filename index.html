@@ -285,6 +285,7 @@ const obData = [
     {e:'💕',t:'React, Connect, Repeat',d:'React with emoji. See your vibe match grow.<br>Take turns. Go deeper. Have fun.'}
 ];
 let obStep = 0;
+let pendingRoomJoin = null; // Save URL room code for after onboarding
 
 // HTML escape helper — prevents XSS
 function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
@@ -317,7 +318,22 @@ function saveProfile(){
     db.ref('users/'+profile.uid+'/profile').set(profile);
     db.ref('users/'+profile.uid+'/rooms').once('value').then(s=>{
         if(s.val()) myRooms = Object.values(s.val());
-        showDash();
+        // Check if there's a pending room join from URL
+        if(pendingRoomJoin){
+            const code = pendingRoomJoin;
+            pendingRoomJoin = null;
+            if(!myRooms.find(r=>r.code===code)){
+                const ref=db.ref('rooms/'+code);
+                ref.once('value').then(rs=>{
+                    if(!rs.exists()){alert('Room not found');showDash();return;}
+                    const d=rs.val();
+                    if(d.player2&&d.player2.name&&d.player2.name!==profile.name){alert('Room is full.');showDash();return;}
+                    ref.child('player2').set({name:profile.name,avatar:profile.avatar,online:true});
+                    myRooms.push({code,label:d.player1.name,playerId:'player2'});
+                    saveLocal();showDash();enterRoom(myRooms.length-1);
+                });
+            } else {showDash();enterRoom(myRooms.findIndex(r=>r.code===code));}
+        } else { showDash(); }
     });
 }
 
@@ -411,6 +427,11 @@ function listenRoom(){
             if(room.loaded){ showCardData(m); }
             updateCounter();
         }
+        if(m.type==='pass'){
+            usedQ.delete(m.number); // Remove from used so it can be drawn again
+            if(room.loaded) addSysBubble(m.text);
+            updateCounter();
+        }
         if(m.type==='blind_answer'&&m.playerId!==room.playerId){
             if(room.loaded){handlePartnerBlind(m);}
             else{pendingPartnerBlind=m;} // Save for after load
@@ -497,9 +518,12 @@ function listenRoom(){
             }
         }
 
-        // If partner already locked in a blind answer before we loaded, show it now
-        if(pendingPartnerBlind && myAnswer){handlePartnerBlind(pendingPartnerBlind);}
-        else if(pendingPartnerBlind && !myAnswer){document.getElementById('blindLbl').textContent='👀 '+pendingPartnerBlind.name+' locked in! Your turn...';}
+        // If partner locked in AFTER room.loaded (live event) and we have an answer, reveal
+        if(pendingPartnerBlind && myAnswer && !document.querySelector('#revealSec:not(.hidden)')){
+            handlePartnerBlind(pendingPartnerBlind);
+        } else if(pendingPartnerBlind && !myAnswer && !document.querySelector('.blind-label')){
+            // Only show this if resume didn't already handle it
+        }
     });
     updateCounter();
 }
@@ -593,7 +617,7 @@ function skipQ(){if(isMyTurn)drawCard();}
 function passQ(){
     if(!curQ)return;
     usedQ.delete(curQ.number);
-    room.ref.child('messages').push({type:'system',text:"💭 Let's revisit this one later",ts:Date.now()});
+    room.ref.child('messages').push({type:'pass',number:curQ.number,text:"💭 Let's revisit this one later",ts:Date.now()});
     resetUI();updateCounter();
 }
 // Chat
@@ -721,6 +745,11 @@ document.getElementById('newRoomName').addEventListener('keypress',e=>{if(e.key=
 
 // Init
 (function(){
+    // Save room code from URL immediately (before onboarding might clear it)
+    const urlParams = new URLSearchParams(location.search);
+    const urlRoom = urlParams.get('room');
+    if(urlRoom) pendingRoomJoin = urlRoom.toUpperCase();
+
     const saved=localStorage.getItem('dmi_profile');
     if(saved){
         profile=JSON.parse(saved);
