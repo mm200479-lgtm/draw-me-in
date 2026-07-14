@@ -441,49 +441,58 @@ function listenRoom(){
             s.forEach(child => msgs.push(child.val()));
             msgs.sort((a,b) => a.ts - b.ts);
 
-            // Find the last question
+            // Find the LAST question in the conversation
             let lastQuestion = null;
-            let myBlindForLastQ = null;
-            let partnerBlindForLastQ = null;
+            let lastQuestionIndex = -1;
 
             for(let i = msgs.length - 1; i >= 0; i--){
                 const m = msgs[i];
-                if(m.type === 'question'){ lastQuestion = m; break; }
+                if(m.type === 'question'){ lastQuestion = m; lastQuestionIndex = i; break; }
             }
 
             if(lastQuestion && blindCats.has(lastQuestion.category)){
-                // Check if blind answers exist for this question (after its timestamp)
-                for(let i = msgs.length - 1; i >= 0; i--){
+                // Count blind answers AFTER this question
+                let myBlindForLastQ = null;
+                let partnerBlindForLastQ = null;
+
+                for(let i = lastQuestionIndex + 1; i < msgs.length; i++){
                     const m = msgs[i];
-                    if(m.ts < lastQuestion.ts) break;
                     if(m.type === 'blind_answer'){
                         if(m.playerId === room.playerId) myBlindForLastQ = m;
                         else partnerBlindForLastQ = m;
                     }
                 }
 
-                // Only resume if NOT both answered (if both answered, it's done — show tap to draw)
                 if(myBlindForLastQ && partnerBlindForLastQ){
-                    // Both already answered — question is complete, ready for next draw
-                    document.getElementById('card').innerHTML='<div class="card-tap">🃏</div><div class="card-tap-text">Tap to draw</div>';
-                } else {
-                    // Show the pending question on the card
+                    // Both already answered — show the reveal so they can see it, then draw next
+                    const card=document.getElementById('card');
+                    card.innerHTML=`<div class="card-number">#${esc(String(lastQuestion.number))}</div><div class="card-category">${esc(lastQuestion.emoji)} ${esc(lastQuestion.category)}</div><div class="card-question">${esc(lastQuestion.text)}</div>`;
+                    document.getElementById('blindSec').classList.remove('hidden');
+                    document.getElementById('chatSec').style.display='none';
+                    myAnswer = myBlindForLastQ.text;
+                    const sim=checkSim(myBlindForLastQ.text, partnerBlindForLastQ.text);
+                    const rev=document.getElementById('revealSec');rev.classList.remove('hidden');
+                    document.getElementById('reactArea').classList.remove('hidden');
+                    document.getElementById('blindLbl').textContent='👀 Answers revealed!';
+                    document.getElementById('blindInp').disabled=true;
+                    rev.innerHTML=`<div class="reveal-bubble reveal-mine"><div class="reveal-label">You</div>${esc(myBlindForLastQ.text)}</div><div class="reveal-bubble reveal-theirs"><div class="reveal-label">${esc(partnerBlindForLastQ.name)}</div>${esc(partnerBlindForLastQ.text)}</div>${sim?'<div class="same-badge">✨ You two think alike! ✨</div>':''}`;
+                } else if(myBlindForLastQ && !partnerBlindForLastQ){
+                    // I answered, waiting for partner
                     showCardData(lastQuestion);
-
-                    if(myBlindForLastQ && !partnerBlindForLastQ){
-                        // I answered, waiting for partner
-                        myAnswer = myBlindForLastQ.text;
-                        document.getElementById('blindInp').disabled = true;
-                        document.getElementById('blindLbl').textContent = '✅ Locked in! Waiting for ' + (room.partnerName||room.label) + '...';
-                    } else if(!myBlindForLastQ && partnerBlindForLastQ){
-                        // Partner answered, waiting for me
-                        pendingPartnerBlind = partnerBlindForLastQ;
-                        document.getElementById('blindLbl').textContent = '👀 ' + partnerBlindForLastQ.name + ' locked in! Your turn...';
-                    }
-                    // else: neither answered yet — fresh blind state
+                    myAnswer = myBlindForLastQ.text;
+                    document.getElementById('blindInp').disabled = true;
+                    document.getElementById('blindLbl').textContent = '✅ Locked in! Waiting for ' + (room.partnerName||room.label) + '...';
+                } else if(!myBlindForLastQ && partnerBlindForLastQ){
+                    // Partner answered, waiting for me
+                    showCardData(lastQuestion);
+                    pendingPartnerBlind = partnerBlindForLastQ;
+                    document.getElementById('blindLbl').textContent = '👀 ' + partnerBlindForLastQ.name + ' locked in! Your turn...';
+                } else {
+                    // Neither answered — show question fresh
+                    showCardData(lastQuestion);
                 }
-            } else if(lastQuestion && !blindCats.has(lastQuestion.category)){
-                // Single answer mode — just show tap to draw (chat handles the history)
+            } else {
+                // Non-blind or no questions — show tap to draw
                 document.getElementById('card').innerHTML='<div class="card-tap">🃏</div><div class="card-tap-text">Tap to draw</div>';
             }
         }
