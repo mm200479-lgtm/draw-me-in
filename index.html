@@ -434,9 +434,61 @@ function listenRoom(){
         if(!s.exists()){document.getElementById('chatMsgs').innerHTML='<div class="msg system">Draw a question to start...</div>';}
         else{const loading=document.querySelector('#chatMsgs .msg.system');if(loading&&loading.textContent==='Loading...')loading.remove();}
         room.loaded = true;
+
+        // Resume pending question state
+        if(s.exists()){
+            const msgs = [];
+            s.forEach(child => msgs.push(child.val()));
+            msgs.sort((a,b) => a.ts - b.ts);
+
+            // Find the last question
+            let lastQuestion = null;
+            let myBlindForLastQ = null;
+            let partnerBlindForLastQ = null;
+
+            for(let i = msgs.length - 1; i >= 0; i--){
+                const m = msgs[i];
+                if(m.type === 'question'){ lastQuestion = m; break; }
+            }
+
+            if(lastQuestion){
+                // Check if blind answers exist for this question (after its timestamp)
+                for(let i = msgs.length - 1; i >= 0; i--){
+                    const m = msgs[i];
+                    if(m.ts < lastQuestion.ts) break;
+                    if(m.type === 'blind_answer'){
+                        if(m.playerId === room.playerId) myBlindForLastQ = m;
+                        else partnerBlindForLastQ = m;
+                    }
+                }
+
+                // Show the last question on the card
+                showCardData(lastQuestion);
+
+                if(blindCats.has(lastQuestion.category)){
+                    // Blind mode — figure out state
+                    if(myBlindForLastQ && partnerBlindForLastQ){
+                        // Both answered — show reveal
+                        myAnswer = myBlindForLastQ.text;
+                        handlePartnerBlind(partnerBlindForLastQ);
+                    } else if(myBlindForLastQ && !partnerBlindForLastQ){
+                        // I answered, waiting for partner
+                        myAnswer = myBlindForLastQ.text;
+                        document.getElementById('blindInp').disabled = true;
+                        document.getElementById('blindLbl').textContent = '✅ Locked in! Waiting for ' + (room.partnerName||room.label) + '...';
+                    } else if(!myBlindForLastQ && partnerBlindForLastQ){
+                        // Partner answered, waiting for me
+                        pendingPartnerBlind = partnerBlindForLastQ;
+                        document.getElementById('blindLbl').textContent = '👀 ' + partnerBlindForLastQ.name + ' locked in! Your turn...';
+                    }
+                    // else: neither answered yet — fresh blind state (already shown by showCardData)
+                }
+            }
+        }
+
         // If partner already locked in a blind answer before we loaded, show it now
         if(pendingPartnerBlind && myAnswer){handlePartnerBlind(pendingPartnerBlind);}
-        else if(pendingPartnerBlind){document.getElementById('blindLbl').textContent='👀 '+pendingPartnerBlind.name+' locked in! Your turn...';}
+        else if(pendingPartnerBlind && !myAnswer){document.getElementById('blindLbl').textContent='👀 '+pendingPartnerBlind.name+' locked in! Your turn...';}
     });
     updateCounter();
 }
