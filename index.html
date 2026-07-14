@@ -451,7 +451,7 @@ function listenRoom(){
                 if(m.type === 'question'){ lastQuestion = m; break; }
             }
 
-            if(lastQuestion){
+            if(lastQuestion && blindCats.has(lastQuestion.category)){
                 // Check if blind answers exist for this question (after its timestamp)
                 for(let i = msgs.length - 1; i >= 0; i--){
                     const m = msgs[i];
@@ -462,16 +462,15 @@ function listenRoom(){
                     }
                 }
 
-                // Show the last question on the card
-                showCardData(lastQuestion);
+                // Only resume if NOT both answered (if both answered, it's done — show tap to draw)
+                if(myBlindForLastQ && partnerBlindForLastQ){
+                    // Both already answered — question is complete, ready for next draw
+                    document.getElementById('card').innerHTML='<div class="card-tap">🃏</div><div class="card-tap-text">Tap to draw</div>';
+                } else {
+                    // Show the pending question on the card
+                    showCardData(lastQuestion);
 
-                if(blindCats.has(lastQuestion.category)){
-                    // Blind mode — figure out state
-                    if(myBlindForLastQ && partnerBlindForLastQ){
-                        // Both answered — show reveal
-                        myAnswer = myBlindForLastQ.text;
-                        handlePartnerBlind(partnerBlindForLastQ);
-                    } else if(myBlindForLastQ && !partnerBlindForLastQ){
+                    if(myBlindForLastQ && !partnerBlindForLastQ){
                         // I answered, waiting for partner
                         myAnswer = myBlindForLastQ.text;
                         document.getElementById('blindInp').disabled = true;
@@ -481,8 +480,11 @@ function listenRoom(){
                         pendingPartnerBlind = partnerBlindForLastQ;
                         document.getElementById('blindLbl').textContent = '👀 ' + partnerBlindForLastQ.name + ' locked in! Your turn...';
                     }
-                    // else: neither answered yet — fresh blind state (already shown by showCardData)
+                    // else: neither answered yet — fresh blind state
                 }
+            } else if(lastQuestion && !blindCats.has(lastQuestion.category)){
+                // Single answer mode — just show tap to draw (chat handles the history)
+                document.getElementById('card').innerHTML='<div class="card-tap">🃏</div><div class="card-tap-text">Tap to draw</div>';
             }
         }
 
