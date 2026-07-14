@@ -129,6 +129,15 @@
         .bottom-btn { flex:1; padding:7px; border:none; border-radius:10px; background:rgba(255,255,255,0.04); color:#fff; font-size:0.65rem; cursor:pointer; border:1px solid rgba(255,255,255,0.08); }
         .hidden { display:none !important; }
 
+        /* Auth Screen */
+        .auth-section { width:100%; text-align:center; }
+        .auth-btn { width:100%; padding:14px; border:none; border-radius:14px; font-size:0.95rem; font-weight:600; cursor:pointer; margin-bottom:10px; display:flex; align-items:center; justify-content:center; gap:10px; }
+        .auth-btn.google { background:#fff; color:#333; }
+        .auth-btn.email { background:var(--accent); color:#fff; }
+        .auth-divider { margin:16px 0; opacity:0.4; font-size:0.8rem; }
+        .auth-toggle { font-size:0.75rem; opacity:0.5; cursor:pointer; text-decoration:underline; margin-top:12px; }
+        .auth-error { color:#ff6b6b; font-size:0.75rem; margin-top:8px; min-height:18px; }
+
         /* Light Mode */
         body.light-mode { background:linear-gradient(135deg,#f8f9fa 0%,#e9ecef 50%,#dee2e6 100%); color:#1a1a2e; }
         body.light-mode .cat-btn, body.light-mode .bottom-btn, body.light-mode .settings-btn, body.light-mode .back-link, body.light-mode .rc-btn { color:#1a1a2e; background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.12); }
@@ -165,6 +174,23 @@
     </div>
 </div>
 
+<div class="screen" id="authScreen">
+    <div class="auth-section">
+        <h2 style="font-size:1.3rem;margin-bottom:6px;">Welcome 💕</h2>
+        <p style="font-size:0.8rem;opacity:0.5;margin-bottom:20px;">Sign in to start playing</p>
+        <button class="auth-btn google" onclick="googleSignIn()">
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Continue with Google
+        </button>
+        <div class="auth-divider">— or —</div>
+        <input class="profile-input" type="email" id="authEmail" placeholder="Email address">
+        <input class="profile-input" type="password" id="authPassword" placeholder="Password">
+        <button class="auth-btn email" id="authEmailBtn" onclick="emailSignIn()">Sign In</button>
+        <p class="auth-toggle" id="authToggle" onclick="toggleAuthMode()">Don't have an account? Sign Up</p>
+        <p class="auth-error" id="authError"></p>
+    </div>
+</div>
+
 <div class="screen" id="profileScreen">
     <div class="profile-setup">
         <h2>Set Up Your Profile</h2>
@@ -174,11 +200,6 @@
         <input class="profile-input" type="text" id="profileName" placeholder="Your name" maxlength="20">
         <input class="profile-input" type="text" id="profileTagline" placeholder="Short tagline (optional)" maxlength="40">
         <button class="save-btn" onclick="saveProfile()">Start Playing ✨</button>
-        <p style="font-size:0.72rem;opacity:0.4;margin-top:16px;cursor:pointer;text-decoration:underline;" onclick="showSyncLogin()">Already playing on another device? Sync here</p>
-        <div id="syncBox" style="display:none;margin-top:12px;">
-            <input class="profile-input" type="text" id="syncUid" placeholder="Paste your sync code">
-            <button class="save-btn" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);margin-top:4px;" onclick="syncFromCode()">Sync</button>
-        </div>
     </div>
 </div>
 
@@ -201,10 +222,10 @@
             <div class="color-dot" style="background:#f59e0b;" onclick="setColor('#f59e0b',this)"></div>
             <div class="color-dot" style="background:#3b82f6;" onclick="setColor('#3b82f6',this)"></div>
         </div></div>
-        <div class="setting-row"><span class="setting-label">Sync Code</span><button style="padding:6px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:0.7rem;cursor:pointer;" onclick="copySyncCode()">Copy Code</button></div>
-        <p style="font-size:0.65rem;opacity:0.4;margin-top:4px;">Use this code to sign in on another device</p>
+        <div class="setting-row"><span class="setting-label">Sign Out</span><button style="padding:6px 14px;border-radius:8px;border:none;background:#ff6b6b;color:#fff;font-size:0.7rem;cursor:pointer;" onclick="signOut()">Sign Out</button></div>
     </div>
 </div>
+
 <div class="screen" id="gameScreen">
     <div class="game-header"><span class="back-link" onclick="leaveRoom()">← Rooms</span><span id="roomLabel" style="font-size:0.7rem;opacity:0.5;"></span></div>
     <div class="status-bar"><span><span class="status-dot" id="sDot"></span><span id="sText">Connected</span></span><span id="vibeBar" style="font-size:0.65rem;opacity:0.5;"></span></div>
@@ -245,6 +266,7 @@
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="questions.js"></script>
 <script>
 // Firebase Config
@@ -258,6 +280,7 @@ firebase.initializeApp({
     appId: "1:144313031430:web:5bf0bb243ff64a49af1737"
 });
 const db = firebase.database();
+const auth = firebase.auth();
 
 // State
 let profile = { name:'', avatar:'😊', tagline:'', uid:'' };
@@ -269,6 +292,8 @@ let curQ = null;
 let myAnswer = '';
 let isMyTurn = true;
 let listeners = [];
+let authMode = 'signin'; // 'signin' or 'signup'
+let pendingRoomJoin = null; // Save URL room code for after auth
 
 const blindCats = new Set(["Basics & Favorites","Personality","Dating","Love Language","Compatibility","Affection","This or That","Food Wars","Taste & Preferences","Travel","Attraction","Holidays","Home Life","Hypotheticals","Would You Rather","Future & Dreams","Friendship","Family","Night Out vs Night In","Habits & Quirks","Date Night","Goals & Ambition","Unpopular Opinions","Dealbreakers","Faith & Beliefs","Boundaries","Communication Styles","Health & Wellness","Work & Lifestyle","Pets & Animals"]);
 const catGroups = {
@@ -285,7 +310,6 @@ const obData = [
     {e:'💕',t:'React, Connect, Repeat',d:'React with emoji. See your vibe match grow.<br>Take turns. Go deeper. Have fun.'}
 ];
 let obStep = 0;
-let pendingRoomJoin = null; // Save URL room code for after onboarding
 
 // HTML escape helper — prevents XSS
 function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
@@ -293,10 +317,54 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
 // Screens
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 
+// Auth — Google Sign In
+function googleSignIn(){
+    document.getElementById('authError').textContent='';
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(err=>{
+        document.getElementById('authError').textContent=err.message;
+    });
+}
+
+// Auth — Email Sign In / Sign Up
+function emailSignIn(){
+    const email=document.getElementById('authEmail').value.trim();
+    const pass=document.getElementById('authPassword').value;
+    document.getElementById('authError').textContent='';
+    if(!email||!pass){document.getElementById('authError').textContent='Please enter email and password';return;}
+    if(authMode==='signup'){
+        auth.createUserWithEmailAndPassword(email,pass).catch(err=>{
+            document.getElementById('authError').textContent=err.message;
+        });
+    } else {
+        auth.signInWithEmailAndPassword(email,pass).catch(err=>{
+            document.getElementById('authError').textContent=err.message;
+        });
+    }
+}
+
+// Toggle between Sign In and Sign Up
+function toggleAuthMode(){
+    authMode = authMode==='signin'?'signup':'signin';
+    document.getElementById('authEmailBtn').textContent = authMode==='signup'?'Sign Up':'Sign In';
+    document.getElementById('authToggle').textContent = authMode==='signup'?'Already have an account? Sign In':'Don\'t have an account? Sign Up';
+    document.getElementById('authError').textContent='';
+}
+
+// Sign Out
+function signOut(){
+    if(!confirm('Sign out?'))return;
+    auth.signOut().then(()=>{
+        profile={name:'',avatar:'😊',tagline:'',uid:''};
+        myRooms=[];
+        show('authScreen');
+    });
+}
+
 // Onboarding
 function nextOnboard(){
     obStep++;
-    if(obStep>=obData.length){show('profileScreen');initAvatars();return;}
+    if(obStep>=obData.length){show('authScreen');return;}
     const d=obData[obStep];
     document.getElementById('obEmoji').textContent=d.e;
     document.getElementById('obTitle').textContent=d.t;
@@ -311,9 +379,8 @@ function pickAv(e,btn){profile.avatar=e;document.getElementById('avatarPreview')
 function saveProfile(){
     const n=document.getElementById('profileName').value.trim();if(!n)return;
     profile.name=n; profile.tagline=document.getElementById('profileTagline').value.trim();
-    // Generate or reuse UID
-    if(!profile.uid) profile.uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
-    localStorage.setItem('dmi_profile',JSON.stringify(profile));
+    // UID comes from Firebase Auth
+    profile.uid = auth.currentUser.uid;
     // Save profile to Firebase
     db.ref('users/'+profile.uid+'/profile').set(profile);
     db.ref('users/'+profile.uid+'/rooms').once('value').then(s=>{
@@ -322,19 +389,24 @@ function saveProfile(){
         if(pendingRoomJoin){
             const code = pendingRoomJoin;
             pendingRoomJoin = null;
-            if(!myRooms.find(r=>r.code===code)){
-                const ref=db.ref('rooms/'+code);
-                ref.once('value').then(rs=>{
-                    if(!rs.exists()){alert('Room not found');showDash();return;}
-                    const d=rs.val();
-                    if(d.player2&&d.player2.name&&d.player2.name!==profile.name){alert('Room is full.');showDash();return;}
-                    ref.child('player2').set({name:profile.name,avatar:profile.avatar,online:true});
-                    myRooms.push({code,label:d.player1.name,playerId:'player2'});
-                    saveLocal();showDash();enterRoom(myRooms.length-1);
-                });
-            } else {showDash();enterRoom(myRooms.findIndex(r=>r.code===code));}
+            joinRoomByCode(code);
         } else { showDash(); }
     });
+}
+
+// Join room by code helper
+function joinRoomByCode(code){
+    if(!myRooms.find(r=>r.code===code)){
+        const ref=db.ref('rooms/'+code);
+        ref.once('value').then(rs=>{
+            if(!rs.exists()){alert('Room not found');showDash();return;}
+            const d=rs.val();
+            if(d.player2&&d.player2.name&&d.player2.name!==profile.name){alert('Room is full.');showDash();return;}
+            ref.child('player2').set({name:profile.name,avatar:profile.avatar,online:true});
+            myRooms.push({code,label:d.player1.name,playerId:'player2'});
+            saveLocal();showDash();enterRoom(myRooms.length-1);
+        });
+    } else {showDash();enterRoom(myRooms.findIndex(r=>r.code===code));}
 }
 
 // Dashboard
@@ -373,7 +445,8 @@ function renderRooms(){
 }
 function shareR(code,label){const u=location.origin+location.pathname+'?room='+code;navigator.share?navigator.share({title:'Draw Me In 💕',text:'Play with me!',url:u}):navigator.clipboard.writeText(u).then(()=>alert('Link copied! Send to '+label+'\n'+u));}
 function delRoom(i){if(!confirm('Delete "'+myRooms[i].label+'"?'))return;db.ref('rooms/'+myRooms[i].code).remove();myRooms.splice(i,1);saveLocal();renderRooms();}
-function saveLocal(){localStorage.setItem('dmi_rooms',JSON.stringify(myRooms)); if(profile.uid) db.ref('users/'+profile.uid+'/rooms').set(myRooms);}
+function saveLocal(){if(profile.uid) db.ref('users/'+profile.uid+'/rooms').set(myRooms);}
+
 // Enter Room
 function enterRoom(i){
     // Clean up any existing room listeners first
@@ -418,7 +491,7 @@ function listenRoom(){
     listeners.push({r:room.ref.child('turn'),e:'value'});
     // Messages
     const currentRoomCode = room.code;
-    let pendingPartnerBlind = null; // Store partner's blind answer if received during load
+    let pendingPartnerBlind = null;
     room.ref.child('messages').orderByChild('ts').on('child_added',s=>{
         if(!room || room.code !== currentRoomCode) return;
         const m=s.val();
@@ -428,13 +501,13 @@ function listenRoom(){
             updateCounter();
         }
         if(m.type==='pass'){
-            usedQ.delete(m.number); // Remove from used so it can be drawn again
+            usedQ.delete(m.number);
             if(room.loaded) addSysBubble(m.text);
             updateCounter();
         }
         if(m.type==='blind_answer'&&m.playerId!==room.playerId){
             if(room.loaded){handlePartnerBlind(m);}
-            else{pendingPartnerBlind=m;} // Save for after load
+            else{pendingPartnerBlind=m;}
         }
         if(m.type==='chat'){addChatBubble(m);}
         if(m.type==='media'){addMediaBubble(m);}
@@ -485,7 +558,7 @@ function listenRoom(){
                 }
 
                 if(myBlindForLastQ && partnerBlindForLastQ){
-                    // Both already answered — show the reveal so they can see it, then draw next
+                    // Both already answered — show the reveal
                     const card=document.getElementById('card');
                     card.innerHTML=`<div class="card-number">#${esc(String(lastQuestion.number))}</div><div class="card-category">${esc(lastQuestion.emoji)} ${esc(lastQuestion.category)}</div><div class="card-question">${esc(lastQuestion.text)}</div>`;
                     document.getElementById('blindSec').classList.remove('hidden');
@@ -518,11 +591,9 @@ function listenRoom(){
             }
         }
 
-        // If partner locked in AFTER room.loaded (live event) and we have an answer, reveal
+        // If partner locked in AFTER room.loaded and we have an answer, reveal
         if(pendingPartnerBlind && myAnswer && !document.querySelector('#revealSec:not(.hidden)')){
             handlePartnerBlind(pendingPartnerBlind);
-        } else if(pendingPartnerBlind && !myAnswer && !document.querySelector('.blind-label')){
-            // Only show this if resume didn't already handle it
         }
     });
     updateCounter();
@@ -550,6 +621,7 @@ function hlCat(k){document.querySelectorAll('.cat-btn').forEach(b=>b.classList.t
 function getPool(){let p=activeCat==='all'?questions:Array.isArray(activeCat)?questions.filter(q=>activeCat.includes(q.category)):questions.filter(q=>q.category===activeCat);return p.filter(q=>!usedQ.has(q.number));}
 function updateCounter(){document.getElementById('counter').textContent=getPool().length+' questions remaining';}
 function resetUI(){document.getElementById('blindSec').classList.add('hidden');document.getElementById('revealSec').classList.add('hidden');document.getElementById('reactArea').classList.add('hidden');document.getElementById('blindInp').value='';myAnswer='';document.getElementById('chatSec').style.display='';}
+
 // Draw
 function drawCard(){
     if(!isMyTurn){document.getElementById('turnInd').textContent='⏳ Not your turn yet!';return;}
@@ -562,7 +634,7 @@ function drawCard(){
     curQ=q;
     // Push to Firebase
     room.ref.child('messages').push({type:'question',number:q.number,category:q.category,emoji:q.emoji,text:q.text,drawnBy:profile.name,ts:Date.now()});
-    // Switch turns — other person draws next
+    // Switch turns
     const next=room.playerId==='player1'?'player2':'player1';
     room.ref.child('turn').set(next);
     // Set mode
@@ -620,6 +692,7 @@ function passQ(){
     room.ref.child('messages').push({type:'pass',number:curQ.number,text:"💭 Let's revisit this one later",ts:Date.now()});
     resetUI();updateCounter();
 }
+
 // Chat
 function sendMsg(){
     const inp=document.getElementById('chatInp');const t=inp.value.trim();if(!t)return;
@@ -662,26 +735,6 @@ document.getElementById('chatInp').addEventListener('input',()=>{if(!room)return
 function toggleDark(el){el.classList.toggle('on');document.body.classList.toggle('light-mode',!el.classList.contains('on'));}
 function setColor(c,el){document.documentElement.style.setProperty('--accent',c);document.documentElement.style.setProperty('--accent-glow',c+'66');document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('selected'));el.classList.add('selected');}
 
-// Sync across devices
-function showSyncLogin(){document.getElementById('syncBox').style.display='block';}
-function syncFromCode(){
-    const uid=document.getElementById('syncUid').value.trim();if(!uid)return;
-    db.ref('users/'+uid).once('value').then(s=>{
-        if(!s.exists()){alert('Code not found. Check and try again.');return;}
-        const data=s.val();
-        profile=data.profile||profile;
-        profile.uid=uid;
-        myRooms=data.rooms?Object.values(data.rooms):[];
-        localStorage.setItem('dmi_profile',JSON.stringify(profile));
-        localStorage.setItem('dmi_rooms',JSON.stringify(myRooms));
-        showDash();
-    });
-}
-function copySyncCode(){
-    if(!profile.uid){alert('No sync code yet');return;}
-    navigator.clipboard.writeText(profile.uid).then(()=>alert('Sync code copied! Paste it on your other device.\n\nCode: '+profile.uid));
-}
-
 // Sound
 function playSound(){if(!document.getElementById('toggleSound').classList.contains('on'))return;try{const c=new(window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;o.type='sine';g.gain.value=0.08;o.start();g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.25);o.stop(c.currentTime+0.25);}catch(e){}}
 
@@ -716,7 +769,6 @@ function startRec(){
         mediaRec.onstop=()=>{
             const blob=new Blob(audioChunks,{type:'audio/webm'});
             stream.getTracks().forEach(t=>t.stop());
-            // Upload to Cloudinary
             document.getElementById('typInd').textContent='Sending voice...';
             const fd=new FormData();fd.append('file',blob);fd.append('upload_preset','draw_me_in_unsigned');fd.append('cloud_name',CLOUD_NAME);
             fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,{method:'POST',body:fd})
@@ -742,51 +794,72 @@ document.getElementById('blindInp').addEventListener('keypress',e=>{if(e.key==='
 document.getElementById('chatInp').addEventListener('keypress',e=>{if(e.key==='Enter')sendMsg();});
 document.getElementById('profileName').addEventListener('keypress',e=>{if(e.key==='Enter')saveProfile();});
 document.getElementById('newRoomName').addEventListener('keypress',e=>{if(e.key==='Enter')createRoom();});
+document.getElementById('authPassword').addEventListener('keypress',e=>{if(e.key==='Enter')emailSignIn();});
 
-// Init
-(function(){
-    // Save room code from URL immediately (before onboarding might clear it)
-    const urlParams = new URLSearchParams(location.search);
-    const urlRoom = urlParams.get('room');
-    if(urlRoom) pendingRoomJoin = urlRoom.toUpperCase();
+// Firebase Auth — onAuthStateChanged handles the init flow
+// Preserve URL room code through auth flow
+const urlParams = new URLSearchParams(location.search);
+const urlRoom = urlParams.get('room');
+if(urlRoom) pendingRoomJoin = urlRoom.toUpperCase();
 
-    const saved=localStorage.getItem('dmi_profile');
-    if(saved){
-        profile=JSON.parse(saved);
-        myRooms=JSON.parse(localStorage.getItem('dmi_rooms')||'[]');
-        // Sync rooms from Firebase (handles cross-device)
-        if(profile.uid){
-            db.ref('users/'+profile.uid+'/rooms').once('value').then(s=>{
-                if(s.val()){
-                    myRooms=Object.values(s.val());
-                    localStorage.setItem('dmi_rooms',JSON.stringify(myRooms));
+firebase.auth().onAuthStateChanged(user => {
+    if(!user){
+        // Not signed in — show onboarding (first time) or auth screen
+        const seenOnboard = localStorage.getItem('dmi_onboard_done');
+        if(seenOnboard){
+            show('authScreen');
+        } else {
+            show('onboardScreen');
+        }
+        return;
+    }
+    // User is signed in — set UID from auth
+    profile.uid = user.uid;
+    // Check if profile exists in Firebase
+    db.ref('users/'+user.uid+'/profile').once('value').then(s=>{
+        if(s.exists()){
+            // Profile exists — load and go to dashboard
+            profile = s.val();
+            profile.uid = user.uid;
+            db.ref('users/'+user.uid+'/rooms').once('value').then(rs=>{
+                if(rs.val()) myRooms = Object.values(rs.val());
+                // Handle pending room join from URL
+                if(pendingRoomJoin){
+                    const code = pendingRoomJoin;
+                    pendingRoomJoin = null;
+                    joinRoomByCode(code);
+                } else {
+                    showDash();
                 }
-                // Check URL for room join
-                handleUrlJoin();
             });
-        } else { handleUrlJoin(); }
+        } else {
+            // No profile — show profile setup
+            show('profileScreen');
+            initAvatars();
+            // Pre-fill name from Google if available
+            if(user.displayName){
+                document.getElementById('profileName').value = user.displayName;
+            }
+        }
+    });
+});
+
+// Mark onboarding as done when user reaches auth screen
+const origNextOnboard = nextOnboard;
+nextOnboard = function(){
+    obStep++;
+    if(obStep>=obData.length){
+        localStorage.setItem('dmi_onboard_done','1');
+        show('authScreen');
+        return;
     }
-    function handleUrlJoin(){
-        const p=new URLSearchParams(location.search);const rc=p.get('room');
-        if(rc){
-            const code=rc.toUpperCase();
-            if(!myRooms.find(r=>r.code===code)){
-                const ref=db.ref('rooms/'+code);
-                ref.once('value').then(s=>{
-                    if(!s.exists()){alert('Room not found');showDash();return;}
-                    const d=s.val();
-                    // Check if room is full (player2 already exists and is different person)
-                    if(d.player2 && d.player2.name && d.player2.name !== profile.name){
-                        alert('This room is full.');showDash();return;
-                    }
-                    ref.child('player2').set({name:profile.name,avatar:profile.avatar,online:true});
-                    myRooms.push({code,label:d.player1.name,playerId:'player2'});
-                    saveLocal(); showDash(); enterRoom(myRooms.length-1);
-                });
-            } else { showDash(); enterRoom(myRooms.findIndex(r=>r.code===code)); }
-        } else { showDash(); }
-    }
-})();
+    const d=obData[obStep];
+    document.getElementById('obEmoji').textContent=d.e;
+    document.getElementById('obTitle').textContent=d.t;
+    document.getElementById('obDesc').innerHTML=d.d;
+    document.querySelectorAll('.onboard-dots span').forEach((s,i)=>s.classList.toggle('active',i===obStep));
+    document.querySelector('.onboard-btn').textContent=obStep===2?'Let\'s Go':'Next';
+};
 </script>
 </body>
 </html>
