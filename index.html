@@ -491,6 +491,7 @@ function enterRoom(i){
         document.getElementById('revealSec').classList.add('hidden');
         document.getElementById('reactArea').classList.add('hidden');
         document.getElementById('vibeBar').textContent='';
+        document.getElementById('card').innerHTML='<div class="card-tap">🃏</div><div class="card-tap-text">Tap to draw</div>';
         initCats(); resetUI();
         listenRoom();
     });
