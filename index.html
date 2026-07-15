@@ -231,7 +231,7 @@
 </div>
 
 <div class="screen" id="dashScreen">
-    <div class="dash-header"><div><h2>Draw Me In</h2><span class="dash-hello" id="dashHello"></span></div><div><button class="settings-btn" onclick="showHelp()">?</button> <button class="settings-btn" onclick="showSettings()">⚙️</button></div></div>
+    <div class="dash-header"><div><h2>Draw Me In</h2><span class="dash-hello" id="dashHello"></span></div><div><button class="settings-btn" onclick="showHelp()">How to Play</button> <button class="settings-btn" onclick="showSettings()">⚙️</button></div></div>
     <div class="new-room-row"><input type="text" id="newRoomName" placeholder="Their name" maxlength="20"><button id="createRoomBtn" onclick="createRoom()">+ New</button></div>
     <div class="room-list" id="roomList"><div class="room-empty">Create a room to start!</div></div>
 </div>
@@ -878,7 +878,7 @@ const urlRoom = urlParams.get('room');
 if(urlRoom) pendingRoomJoin = urlRoom.toUpperCase();
 
 // Version check — auto-refresh when new version is deployed
-const APP_VERSION = 14;
+const APP_VERSION = 15;
 db.ref('appVersion').once('value').then(s=>{
     const serverVersion = s.val();
     if(serverVersion && serverVersion > APP_VERSION){
