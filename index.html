@@ -131,7 +131,7 @@
         .msg .msg-time { font-size:0.5rem; opacity:0.4; margin-top:2px; text-align:right; }
         .typing-ind { font-size:0.68rem; opacity:0.45; margin-bottom:5px; font-style:italic; min-height:14px; }
         .chat-input-row { display:flex; gap:4px; align-items:center; }
-        .chat-input-row input { flex:1; padding:13px 16px; border-radius:18px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04); color:#fff; font-size:0.9rem; outline:none; transition:all 0.2s ease; }
+        .chat-input-row input { flex:1; padding:13px 16px; border-radius:18px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04); color:#fff; font-size:16px; outline:none; transition:all 0.2s ease; }
         .chat-input-row input:focus { border-color:var(--accent); }
         .chat-input-row input::placeholder { color:rgba(255,255,255,0.3); }
         .send-btn { width:34px; height:34px; border-radius:50%; border:none; background:var(--accent); color:#fff; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s ease; }
@@ -878,7 +878,7 @@ const urlRoom = urlParams.get('room');
 if(urlRoom) pendingRoomJoin = urlRoom.toUpperCase();
 
 // Version check — auto-refresh when new version is deployed
-const APP_VERSION = 13;
+const APP_VERSION = 14;
 db.ref('appVersion').once('value').then(s=>{
     const serverVersion = s.val();
     if(serverVersion && serverVersion > APP_VERSION){
