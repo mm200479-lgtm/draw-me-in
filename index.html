@@ -231,7 +231,7 @@
 </div>
 
 <div class="screen" id="dashScreen">
-    <div class="dash-header"><div><h2>Draw Me In</h2><span class="dash-hello" id="dashHello"></span></div><button class="settings-btn" onclick="showSettings()">⚙️</button></div>
+    <div class="dash-header"><div><h2>Draw Me In</h2><span class="dash-hello" id="dashHello"></span></div><div><button class="settings-btn" onclick="showHelp()">?</button> <button class="settings-btn" onclick="showSettings()">⚙️</button></div></div>
     <div class="new-room-row"><input type="text" id="newRoomName" placeholder="Their name" maxlength="20"><button id="createRoomBtn" onclick="createRoom()">+ New</button></div>
     <div class="room-list" id="roomList"><div class="room-empty">Create a room to start!</div></div>
 </div>
@@ -289,6 +289,20 @@
         </div>
         <input type="file" id="fileUp" accept="image/*,video/*,audio/*" style="display:none;" onchange="uploadFile(event)">
         <div class="bottom-btns"><button class="bottom-btn" onclick="clearChat()">🗑️ Clear Chat</button></div>
+    </div>
+</div>
+
+<!-- Help Overlay -->
+<div id="helpOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:999;display:none;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#16213e;border-radius:18px;padding:28px;max-width:380px;width:100%;border:1px solid rgba(255,255,255,0.1);">
+        <h3 style="font-size:1.1rem;margin-bottom:16px;text-align:center;">How to Play 💕</h3>
+        <div style="font-size:0.85rem;line-height:1.7;opacity:0.85;">
+            <p style="margin-bottom:12px;">🎲 <strong>Draw a question</strong> — Tap the card to get a random question. Both of you answer in the chat.</p>
+            <p style="margin-bottom:12px;">➕ <strong>Create a room</strong> — Type their name, tap "+ New". Then tap "Share" to send them the link.</p>
+            <p style="margin-bottom:12px;">🏠 <strong>Add to home screen</strong> — For the best experience, open in Safari (iPhone) or Chrome (Android), tap Share → "Add to Home Screen".</p>
+            <p style="margin-bottom:12px;">🎯 <strong>Pick a vibe</strong> — Tap a category to draw questions from that topic, or tap "All" for random.</p>
+        </div>
+        <button onclick="closeHelp()" style="width:100%;padding:12px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-weight:600;font-size:0.9rem;cursor:pointer;margin-top:8px;">Got it ✨</button>
     </div>
 </div>
 
@@ -439,6 +453,8 @@ function joinRoomByCode(code){
 // Dashboard
 function showDash(){show('dashScreen');document.getElementById('dashHello').textContent='Hi, '+profile.name;renderRooms();}
 function showSettings(){show('settingsScreen');}
+function showHelp(){document.getElementById('helpOverlay').style.display='flex';}
+function closeHelp(){document.getElementById('helpOverlay').style.display='none';}
 function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i=0;i<4;i++)r+=c[Math.floor(Math.random()*c.length)];return r;}
 
 function createRoom(){
@@ -862,7 +878,7 @@ const urlRoom = urlParams.get('room');
 if(urlRoom) pendingRoomJoin = urlRoom.toUpperCase();
 
 // Version check — auto-refresh when new version is deployed
-const APP_VERSION = 12;
+const APP_VERSION = 13;
 db.ref('appVersion').once('value').then(s=>{
     const serverVersion = s.val();
     if(serverVersion && serverVersion > APP_VERSION){
