@@ -509,12 +509,23 @@ function renderRooms(){
     if(!myRooms.length){list.innerHTML='<div class="room-empty">Create a room to start!</div>';return;}
     list.innerHTML=myRooms.map((r,i)=>`
         <div class="room-card" onclick="enterRoom(${i})">
-            <div class="room-card-left"><div class="room-card-name">${esc(r.label)}</div><div class="room-card-code">${esc(r.code)}</div><div class="room-card-status">Tap to play</div></div>
+            <div class="room-card-left" style="display:flex;align-items:center;gap:10px;">
+                <div id="roomPhoto${i}" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:1rem;overflow:hidden;flex-shrink:0;"></div>
+                <div><div class="room-card-name">${esc(r.label)}</div><div class="room-card-code">${esc(r.code)}</div><div class="room-card-status">Tap to play</div></div>
+            </div>
             <div class="room-card-right">
                 <button class="rc-btn" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.1);" onclick="event.stopPropagation();shareR('${esc(r.code)}','${esc(r.label)}')">Share</button>
                 <button class="rc-btn" style="background:rgba(255,107,107,0.08);color:#ff6b6b;border:1px solid rgba(255,107,107,0.12);" onclick="event.stopPropagation();delRoom(${i})">Delete</button>
             </div>
         </div>`).join('');
+    // Load partner photos for each room
+    myRooms.forEach((r,i)=>{
+        const partnerKey=r.playerId==='player1'?'player2':'player1';
+        db.ref('rooms/'+r.code+'/'+partnerKey+'/photoUrl').once('value').then(s=>{
+            const el=document.getElementById('roomPhoto'+i);
+            if(el&&s.val()) el.innerHTML='<img src="'+esc(s.val())+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">';
+        });
+    });
 }
 function shareR(code,label){const u=location.origin+location.pathname+'?room='+code;navigator.share?navigator.share({title:'Draw Me In 💕',text:'Play with me!',url:u}):navigator.clipboard.writeText(u).then(()=>alert('Link copied! Send to '+label+'\n'+u));}
 function delRoom(i){if(!confirm('Delete "'+myRooms[i].label+'"?'))return;db.ref('rooms/'+myRooms[i].code).remove();myRooms.splice(i,1);saveLocal();renderRooms();}
@@ -908,7 +919,7 @@ const urlRoom = urlParams.get('room');
 if(urlRoom) pendingRoomJoin = urlRoom.toUpperCase();
 
 // Version check — auto-refresh when new version is deployed
-const APP_VERSION = 17;
+const APP_VERSION = 18;
 db.ref('appVersion').once('value').then(s=>{
     const serverVersion = s.val();
     if(serverVersion && serverVersion > APP_VERSION){
