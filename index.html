@@ -193,7 +193,7 @@
 
 <div class="screen active" id="onboardScreen">
     <div class="onboard-card" id="obCard">
-        <div class="onboard-emoji" id="obEmoji">🃏</div>
+        <div class="onboard-emoji" id="obEmoji"><img src="logo.png" style="width:120px;height:auto;"></div>
         <div class="onboard-title" id="obTitle">Draw Me In</div>
         <div class="onboard-desc" id="obDesc">No small talk, just real talk.<br>Get to know someone — one card at a time.</div>
         <div class="onboard-dots"><span class="active"></span><span></span><span></span></div>
@@ -335,7 +335,7 @@ const catGroups = {
 };
 const avatars = ['😊','😎','🥰','😈','🌸','🔥','💀','🦋','🌙','✨','💕','🎭'];
 const obData = [
-    {e:'🃏',t:'Draw Me In',d:'No small talk, just real talk.<br>Get to know someone — one card at a time.'},
+    {e:'logo',t:'Draw Me In',d:'No small talk, just real talk.<br>Get to know someone — one card at a time.'},
     {e:'👀',t:'Both Answer, Then Reveal',d:'Type your answer without seeing theirs.<br>Lock it in. Then see what they said.'},
     {e:'💕',t:'React, Connect, Repeat',d:'React with emoji. See your vibe match grow.<br>Take turns. Go deeper. Have fun.'}
 ];
@@ -396,7 +396,7 @@ function nextOnboard(){
     obStep++;
     if(obStep>=obData.length){show('authScreen');return;}
     const d=obData[obStep];
-    document.getElementById('obEmoji').textContent=d.e;
+    document.getElementById('obEmoji').innerHTML=d.e==='logo'?'<img src="logo.png" style="width:120px;height:auto;">':d.e;
     document.getElementById('obTitle').textContent=d.t;
     document.getElementById('obDesc').innerHTML=d.d;
     document.querySelectorAll('.onboard-dots span').forEach((s,i)=>s.classList.toggle('active',i===obStep));
@@ -899,7 +899,7 @@ nextOnboard = function(){
         return;
     }
     const d=obData[obStep];
-    document.getElementById('obEmoji').textContent=d.e;
+    document.getElementById('obEmoji').innerHTML=d.e==='logo'?'<img src="logo.png" style="width:120px;height:auto;">':d.e;
     document.getElementById('obTitle').textContent=d.t;
     document.getElementById('obDesc').innerHTML=d.d;
     document.querySelectorAll('.onboard-dots span').forEach((s,i)=>s.classList.toggle('active',i===obStep));

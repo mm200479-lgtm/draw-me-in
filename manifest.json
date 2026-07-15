@@ -2,8 +2,16 @@
   "name": "Draw Me In",
   "short_name": "Draw Me In",
   "description": "No small talk, just real talk. One question at a time.",
-  "start_url": "/",
+  "start_url": "/draw-me-in/",
   "display": "standalone",
   "background_color": "#1a1a2e",
-  "theme_color": "#1a1a2e"
+  "theme_color": "#1a1a2e",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
