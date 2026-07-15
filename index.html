@@ -526,6 +526,12 @@ function listenRoom(){
         if(m.type==='question'){
             usedQ.add(m.number);
             if(room.loaded){ showCardData(m); }
+            // Always add question to chat
+            const msgs=document.getElementById('chatMsgs');
+            const empty=msgs.querySelector('.msg.system');if(empty&&empty.textContent==='Draw a question to start...')empty.remove();
+            const qd=document.createElement('div');qd.className='msg question';
+            qd.innerHTML=`<div class="msg-label">#${esc(String(m.number))} · ${esc(m.category)}</div>${esc(m.text)}`;
+            msgs.appendChild(qd);msgs.scrollTop=msgs.scrollHeight;
             updateCounter();
         }
         if(m.type==='pass'){
@@ -854,6 +860,15 @@ document.getElementById('authPassword').addEventListener('keypress',e=>{if(e.key
 const urlParams = new URLSearchParams(location.search);
 const urlRoom = urlParams.get('room');
 if(urlRoom) pendingRoomJoin = urlRoom.toUpperCase();
+
+// Version check — auto-refresh when new version is deployed
+const APP_VERSION = 12;
+db.ref('appVersion').once('value').then(s=>{
+    const serverVersion = s.val();
+    if(serverVersion && serverVersion > APP_VERSION){
+        location.reload(true);
+    }
+});
 
 firebase.auth().onAuthStateChanged(user => {
     if(!user){
