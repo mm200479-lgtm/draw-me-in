@@ -437,7 +437,12 @@ function uploadProfilePhoto(event){
         if(data.secure_url){
             profile.photoUrl=data.secure_url;
             document.getElementById('avatarPreview').innerHTML='<img src="'+data.secure_url+'" style="width:80px;height:80px;border-radius:50%;object-fit:cover;">';
+            // Update Firebase profile
             if(profile.uid) db.ref('users/'+profile.uid+'/profile/photoUrl').set(data.secure_url);
+            // Update photo in all existing rooms
+            myRooms.forEach(r=>{
+                db.ref('rooms/'+r.code+'/'+r.playerId+'/photoUrl').set(data.secure_url);
+            });
         }
     }).catch(()=>{document.getElementById('avatarPreview').textContent=profile.avatar;});
     event.target.value='';
@@ -903,7 +908,7 @@ const urlRoom = urlParams.get('room');
 if(urlRoom) pendingRoomJoin = urlRoom.toUpperCase();
 
 // Version check — auto-refresh when new version is deployed
-const APP_VERSION = 16;
+const APP_VERSION = 17;
 db.ref('appVersion').once('value').then(s=>{
     const serverVersion = s.val();
     if(serverVersion && serverVersion > APP_VERSION){
