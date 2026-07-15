@@ -221,8 +221,10 @@
 <div class="screen" id="profileScreen">
     <div class="profile-setup">
         <h2>Set Up Your Profile</h2>
-        <div style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:2rem;" id="avatarPreview">😊</div>
-        <p style="font-size:0.75rem;opacity:0.5;margin-bottom:10px;">Pick an emoji avatar</p>
+        <div style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:2rem;overflow:hidden;" id="avatarPreview">😊</div>
+        <input type="file" id="profilePhotoInput" accept="image/*" style="display:none;" onchange="uploadProfilePhoto(event)">
+        <button onclick="document.getElementById('profilePhotoInput').click()" style="display:block;margin:0 auto 12px;padding:6px 14px;border-radius:10px;border:none;background:rgba(255,255,255,0.08);color:#fff;font-size:0.75rem;cursor:pointer;border:1px solid rgba(255,255,255,0.15);">📷 Upload Photo (optional)</button>
+        <p style="font-size:0.75rem;opacity:0.5;margin-bottom:10px;">Or pick an emoji avatar</p>
         <div class="avatar-picker" id="avatarPicker"></div>
         <input class="profile-input" type="text" id="profileName" placeholder="Your name" maxlength="20">
         <input class="profile-input" type="text" id="profileTagline" placeholder="Short tagline (optional)" maxlength="40">
@@ -240,6 +242,8 @@
     <div class="settings-panel" style="width:100%;">
         <span class="back-link" onclick="showDash()">← Back</span>
         <h2>Settings</h2>
+        <div class="setting-row"><span class="setting-label">Profile Photo</span><button style="padding:6px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.08);color:#fff;font-size:0.7rem;cursor:pointer;border:1px solid rgba(255,255,255,0.15);" onclick="document.getElementById('settingsPhotoInput').click()">Change Photo</button></div>
+        <input type="file" id="settingsPhotoInput" accept="image/*" style="display:none;" onchange="uploadProfilePhoto(event)">
         <div class="setting-row"><span class="setting-label">Dark Mode</span><div class="toggle on" id="toggleDark" onclick="toggleDark(this)"></div></div>
         <div class="setting-row"><span class="setting-label">Sound</span><div class="toggle on" id="toggleSound" onclick="this.classList.toggle('on')"></div></div>
         <div class="setting-row"><span class="setting-label">Accent Color</span><div class="color-options">
@@ -327,7 +331,7 @@ const db = firebase.database();
 const auth = firebase.auth();
 
 // State
-let profile = { name:'', avatar:'😊', tagline:'', uid:'' };
+let profile = { name:'', avatar:'😊', tagline:'', uid:'', photoUrl:'' };
 let myRooms = [];
 let room = null; // {code, label, ref, playerId, partnerName}
 let usedQ = new Set();
@@ -419,7 +423,25 @@ function nextOnboard(){
 
 // Profile
 function initAvatars(){document.getElementById('avatarPicker').innerHTML=avatars.map(e=>`<button onclick="pickAv('${e}',this)">${e}</button>`).join('');document.querySelector('.avatar-picker button').classList.add('selected');}
-function pickAv(e,btn){profile.avatar=e;document.getElementById('avatarPreview').textContent=e;document.querySelectorAll('.avatar-picker button').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');}
+function pickAv(e,btn){profile.avatar=e;profile.photoUrl='';document.getElementById('avatarPreview').textContent=e;document.querySelectorAll('.avatar-picker button').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');}
+
+function uploadProfilePhoto(event){
+    const file=event.target.files[0];if(!file)return;
+    document.getElementById('avatarPreview').innerHTML='<span style="font-size:0.7rem;opacity:0.5;">...</span>';
+    const fd=new FormData();
+    fd.append('file',file);
+    fd.append('upload_preset','draw_me_in_unsigned');
+    fd.append('cloud_name',CLOUD_NAME);
+    fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/image/upload',{method:'POST',body:fd})
+    .then(r=>r.json()).then(data=>{
+        if(data.secure_url){
+            profile.photoUrl=data.secure_url;
+            document.getElementById('avatarPreview').innerHTML='<img src="'+data.secure_url+'" style="width:80px;height:80px;border-radius:50%;object-fit:cover;">';
+            if(profile.uid) db.ref('users/'+profile.uid+'/profile/photoUrl').set(data.secure_url);
+        }
+    }).catch(()=>{document.getElementById('avatarPreview').textContent=profile.avatar;});
+    event.target.value='';
+}
 function saveProfile(){
     const n=document.getElementById('profileName').value.trim();if(!n)return;
     profile.name=n; profile.tagline=document.getElementById('profileTagline').value.trim();
@@ -443,7 +465,7 @@ function joinRoomByCode(code){
             if(!rs.exists()){alert('Room not found');showDash();return;}
             const d=rs.val();
             if(d.player2&&d.player2.name&&d.player2.name!==profile.name){alert('Room is full.');showDash();return;}
-            ref.child('player2').set({name:profile.name,avatar:profile.avatar,online:true});
+            ref.child('player2').set({name:profile.name,avatar:profile.avatar,photoUrl:profile.photoUrl||'',online:true});
             myRooms.push({code,label:d.player1.name,playerId:'player2'});
             saveLocal();showDash();enterRoom(myRooms.length-1);
         });
@@ -468,7 +490,7 @@ function createRoom(){
         const ref=db.ref('rooms/'+code);
         ref.once('value').then(s=>{
             if(s.exists()){tryCreate();return;}
-            ref.set({player1:{name:profile.name,avatar:profile.avatar,online:true},player2:null,messages:null,turn:'player1',compat:{total:0,matches:0},createdAt:Date.now()});
+            ref.set({player1:{name:profile.name,avatar:profile.avatar,photoUrl:profile.photoUrl||'',online:true},player2:null,messages:null,turn:'player1',compat:{total:0,matches:0},createdAt:Date.now()});
             myRooms.push({code,label,playerId:'player1'});
             saveLocal(); document.getElementById('newRoomName').value=''; renderRooms();
             btn.textContent='+ New';btn.disabled=false;
@@ -526,6 +548,8 @@ function listenRoom(){
     const pRef=room.ref.child(pk);
     pRef.child('name').on('value',s=>{if(s.val())room.partnerName=s.val();document.getElementById('sText').textContent='Playing with '+(room.partnerName||room.label);});
     listeners.push({r:pRef.child('name'),e:'value'});
+    pRef.child('photoUrl').on('value',s=>{room.partnerPhoto=s.val()||'';});
+    listeners.push({r:pRef.child('photoUrl'),e:'value'});
     pRef.child('online').on('value',s=>{document.getElementById('sDot').classList.toggle('offline',!s.val());});
     listeners.push({r:pRef.child('online'),e:'value'});
     room.ref.child('turn').on('value',s=>{
@@ -766,7 +790,8 @@ function addChatBubble(m){
     const isMe=m.playerId===room.playerId;
     d.className='msg '+(isMe?'mine':'theirs');
     const receipt=isMe?' <span style="font-size:0.45rem;opacity:0.4;">✓</span>':'';
-    d.innerHTML=`<div class="msg-label">${esc(m.name)}</div>${esc(m.text)}<div class="msg-time">${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}${receipt}</div>`;
+    const photo=isMe?(profile.photoUrl?'<img src="'+esc(profile.photoUrl)+'" style="width:18px;height:18px;border-radius:50%;object-fit:cover;display:inline-block;vertical-align:middle;margin-right:4px;">':''):(room.partnerPhoto?'<img src="'+esc(room.partnerPhoto)+'" style="width:18px;height:18px;border-radius:50%;object-fit:cover;display:inline-block;vertical-align:middle;margin-right:4px;">':'');
+    d.innerHTML=`<div class="msg-label">${photo}${esc(m.name)}</div>${esc(m.text)}<div class="msg-time">${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}${receipt}</div>`;
     msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
     if(!isMe)playSound();
 }
@@ -878,7 +903,7 @@ const urlRoom = urlParams.get('room');
 if(urlRoom) pendingRoomJoin = urlRoom.toUpperCase();
 
 // Version check — auto-refresh when new version is deployed
-const APP_VERSION = 15;
+const APP_VERSION = 16;
 db.ref('appVersion').once('value').then(s=>{
     const serverVersion = s.val();
     if(serverVersion && serverVersion > APP_VERSION){
